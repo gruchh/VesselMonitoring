@@ -3,6 +3,7 @@ package com.monitor.vessel.Service;
 import com.monitor.vessel.Client.BarentswatchClient;
 import com.monitor.vessel.Mapper.VesselMapper;
 import com.monitor.vessel.Model.Dto.AisPositionDto;
+import com.monitor.vessel.Model.Dto.VesselPositionWsMapper;
 import com.monitor.vessel.Model.Vessel;
 import com.monitor.vessel.Model.VesselPosition;
 import com.monitor.vessel.Repository.VesselPositionRepository;
@@ -30,6 +31,7 @@ public class VesselMonitorService {
     private final VesselRepository vesselRepository;
     private final VesselPositionRepository vesselPositionRepository;
     private final VesselMapper vesselMapper;
+    private final VesselPositionWsMapper wsMapper;
 
     @Scheduled(fixedDelay = 2000)
     @CircuitBreaker(name = "barentswatch", fallbackMethod = "fallback")
@@ -42,7 +44,12 @@ public class VesselMonitorService {
         }
 
         List<VesselPosition> positions = save(dtos);
-        messagingTemplate.convertAndSend("/topic/vessel/position", positions);
+        positions.forEach(p ->
+                messagingTemplate.convertAndSend(
+                        "/topic/vessel/position",
+                        wsMapper.mapToDto(p)
+                )
+        );
         log.info("Saved and pushed {} positions", positions.size());
     }
 
@@ -80,7 +87,12 @@ public class VesselMonitorService {
     private void sendFromRepo() {
         List<VesselPosition> cached = vesselPositionRepository.findAll();
         if (!cached.isEmpty()) {
-            messagingTemplate.convertAndSend("/topic/vessel/position", cached);
+            cached.forEach(p ->
+                    messagingTemplate.convertAndSend(
+                            "/topic/vessel/position",
+                            wsMapper.mapToDto(p)
+                    )
+            );
             log.info("Sent {} cached positions from repo", cached.size());
         } else {
             log.warn("No cached positions in repo");
