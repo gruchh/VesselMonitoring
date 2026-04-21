@@ -1,6 +1,7 @@
 package com.monitor.vessel.Service;
 
 import com.monitor.vessel.Client.BarentswatchClient;
+import com.monitor.vessel.Mapper.VesselMapper;
 import com.monitor.vessel.Model.Dto.AisPositionDto;
 import com.monitor.vessel.Model.Vessel;
 import com.monitor.vessel.Model.VesselPosition;
@@ -28,6 +29,7 @@ public class VesselMonitorService {
     private final SimpMessagingTemplate messagingTemplate;
     private final VesselRepository vesselRepository;
     private final VesselPositionRepository vesselPositionRepository;
+    private final VesselMapper vesselMapper;
 
     @Scheduled(fixedDelay = 2000)
     @CircuitBreaker(name = "barentswatch", fallbackMethod = "fallback")
@@ -55,7 +57,7 @@ public class VesselMonitorService {
 
         List<Vessel> newVessels = Arrays.stream(dtos)
                 .filter(dto -> !existingVessels.containsKey(dto.mmsi()))
-                .map(AisPositionDto::toVessel)
+                .map(vesselMapper::mapToVessel)
                 .toList();
 
         if (!newVessels.isEmpty()) {
@@ -64,7 +66,7 @@ public class VesselMonitorService {
         }
 
         List<VesselPosition> positions = Arrays.stream(dtos)
-                .map(dto -> dto.toPosition(existingVessels.get(dto.mmsi())))
+                .map(dto -> vesselMapper.mapToPosition(dto, existingVessels.get(dto.mmsi())))
                 .toList();
 
         return vesselPositionRepository.saveAll(positions);
